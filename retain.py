@@ -14,6 +14,7 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 import numpy as np
 from scipy.sparse import coo_matrix
 from sklearn.metrics import roc_auc_score, average_precision_score
+from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 
 import sys
@@ -25,7 +26,7 @@ from tqdm import tnrange, tqdm_notebook
 """ Arguments """
 parser = argparse.ArgumentParser()
 
-parser.add_argument('data_path', metavar='DATA_PATH', help="Path to the dataset")
+parser.add_argument('data_path', default='/home/coco/retain_data/', metavar='DATA_PATH', help="Path to the dataset")
 parser.add_argument('--lr', '--learning-rate', default=1e-3, type=float, metavar='LR',
 					help='learning rate (default: 1e-3)')
 parser.add_argument('--weight-decay', '--wd', default=0, type=float, metavar='W', help='weight decay (default: 0)')
@@ -278,7 +279,7 @@ def epoch(loader, model, criterion, optimizer=None, train=False):
 
 		output, alpha, beta = model(input_var, lengths)
 		loss = criterion(output, target_var)
-		assert not np.isnan(loss.data[0]), 'Model diverged with loss = NaN'
+		assert not np.isnan(loss.item()), 'Model diverged with loss = NaN'
 
 		labels.append(targets)
 
@@ -286,7 +287,7 @@ def epoch(loader, model, criterion, optimizer=None, train=False):
 		outputs.append(F.softmax(output).data)
 
 		# record loss
-		losses.update(loss.data[0], inputs.size(0))
+		losses.update(loss.item(), inputs.size(0))
 
 		# compute gradient and do update step
 		if train:
@@ -324,6 +325,14 @@ def main(argv):
 
 	# Data loading
 	print('===> Loading entire datasets')
+	with open(args.data_path + '.3digitICD9.seqs', 'rb') as f:
+		all_seqs = pickle.load(f)
+	with open(args.data_path + '.morts', 'rb') as f:
+		all_labels = pickle.load(f)
+	train_seqs1,valid_seqs,train_labels1,valid_labels = train_test_split(all_seqs,all_labels,test_size=0.2)
+	train_seqs,test_seqs,train_labels,test_labels = train_test_split(train_seqs1,train_labels1,test_size=0.25)
+	"""
+	print('===> Loading entire datasets')
 	with open(args.data_path + 'train.seqs', 'rb') as f:
 		train_seqs = pickle.load(f)
 	with open(args.data_path + 'train.labels', 'rb') as f:
@@ -336,7 +345,7 @@ def main(argv):
 		test_seqs = pickle.load(f)
 	with open(args.data_path + 'test.labels', 'rb') as f:
 		test_labels = pickle.load(f)
-
+	"""
 	max_code = max(map(lambda p: max(map(lambda v: max(v), p)), train_seqs + valid_seqs + test_seqs))
 	num_features = max_code + 1
 
